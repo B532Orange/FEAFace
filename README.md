@@ -1,5 +1,5 @@
 # FEAFace
 
-the code of CFG-DiffNet
+the code of FEAFace
 
 the whole training and testing progress will coming soon
