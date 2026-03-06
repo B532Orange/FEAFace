@@ -113,10 +113,10 @@ If you find this project useful in your research, please consider citing our wor
 
 ```
 @article{FEAFace,
-  title={Feature Enhancing and Adaptive Feature Space Reconstruction for Large Pose Livestock Face Recognition},
-  author={},
-  journal={},
-  year={}
+title={Feature Enhancing and Adaptive Feature Space Reconstruction for Large Pose Livestock Face Recognition},
+author={Shi, Xiaohu and Chen, Zhaohuang and Zhao, Yumin and Liu, Haibo and Ma, Deyin},
+journal={},
+year={},
 }
 ```
 
