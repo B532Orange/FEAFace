@@ -14,22 +14,17 @@ def builder(args):
     model = SoftmaxBuilder(args)
     return model
 
-
 class SoftmaxBuilder(nn.Module):
     def __init__(self, args):
         super(SoftmaxBuilder, self).__init__()
         self.device = args.device
-        self.features = iresnet.iresnet(num_classes=args.embedding_size)
+        self.features = iresnet.iresnet(num_classes=args.embedding_size)   
         self.fc = ArcFace(args.input_fc_size, args.last_fc_size, 64, 0.1)
         self.generate = GenerateNet()
         self.sa = SpatialSENet(in_channels=512)
         self.reconstruction = Reconstruction(in_channels=512, out_height=100, out_width=100)
-
-
     def forward(self, x, y, target, epoch):
-
         X , mapx = self.features(x)
-        
         if torch.is_tensor(y) == True :
             ssimx = 0
             attentionx = self.sa(mapx)
@@ -42,19 +37,14 @@ class SoftmaxBuilder(nn.Module):
             y = 0
             y_norm = 0
             ssimx = 0
-            
         if self.training:
             noise = np.random.normal(0, 0.005, size=X.shape)
             noise = torch.tensor(noise, dtype=X.dtype).to(X.device)
             X = X + noise
-
         X = self.generate(X)
         x_norm = F.normalize(X)
-
-        logits, cosine, sec = self.fc(X, target, epoch)
-
-
-        return logits, x_norm, y_norm, cosine, ssimx, mapx
+        logits, cosine = self.fc(X, target, epoch)
+        return logits, x_norm, y_norm, cosine, ssimx
 
 
 class ArcFace(nn.Module):
@@ -68,7 +58,6 @@ class ArcFace(nn.Module):
         
         self.weight = Parameter(torch.FloatTensor(in_features, out_features))
         self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
-
         self.easy_margin = easy_margin
         self.cos_m = math.cos(m)
         self.sin_m = math.sin(m)
@@ -93,7 +82,6 @@ class ArcFace(nn.Module):
             phi = torch.where(cosine > self.th, phi, cosine - self.mm)
         one_hot = torch.zeros(cosine.size(), device=cosine.device)
         one_hot.scatter_(1, label.view(-1, 1).long(), 1)
-        
         if epoch > 1:
             indices = torch.argsort(cosine, descending=True)
             second_largest_index = indices[:, 1]  # 第二大值的索引，因为第一个索引是最大值的索引
@@ -103,22 +91,16 @@ class ArcFace(nn.Module):
         else:
             output = (one_hot * phi) + ((1.0 - one_hot) * cosine)    
         output = output * self.s
-
-
         cosine = cosine*self.s
-        second_largest = 0
-
-        return output, cosine, second_largest
+        return output, cosine
 
 
 class FocalLoss(nn.Module):
-
     def __init__(self, gamma=0, eps=1e-7):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
         self.eps = eps
         self.ce = torch.nn.CrossEntropyLoss()
-
     def forward(self, input, target):
         logp = self.ce(input, target)
         p = torch.exp(-logp)
@@ -131,7 +113,7 @@ class GenerateNet(torch.nn.Module):
         super(GenerateNet, self).__init__()
         self.output_size = output_size
         self.generate_features = nn.Sequential(
-
+            # deer  
             # nn.Linear(512, 512),
             # nn.ReLU(True),
             # nn.Linear(512, 512),
@@ -144,7 +126,7 @@ class GenerateNet(torch.nn.Module):
             # nn.Linear(1024, 512),
             # nn.ReLU(True)
 
-
+            #cattle res
             nn.Linear(4096, 4096),
             nn.ReLU(True),
             nn.Linear(4096, 2048),
@@ -174,7 +156,6 @@ class GenLoss(torch.nn.Module):
         squared_diff = diff ** 2
         sum_squared_diff = torch.sum(squared_diff)
         loss_ed = torch.sqrt(sum_squared_diff)
-
         loss_cos = F.cosine_similarity(x_norm, y_norm)
         
         return loss_ed, loss_cos
@@ -248,6 +229,7 @@ class SpatialSENet(nn.Module):
 
 
 
+
 class Reconstruction(nn.Module):
     def __init__(self, in_channels, out_height=100, out_width=100):
         super(Reconstruction, self).__init__()
@@ -256,9 +238,7 @@ class Reconstruction(nn.Module):
         self.trans_conv3 = nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1)
         self.out_height = out_height
         self.out_width = out_width
-
     def forward(self, x):
-
         x = F.relu(self.trans_conv1(x))
         x = F.relu(self.trans_conv2(x))
         x = torch.sigmoid(self.trans_conv3(x))
@@ -266,7 +246,14 @@ class Reconstruction(nn.Module):
         return x
 
 
+    
 
+
+def MSE(image1, image2):
+    image1 = image1.float()
+    image2 = image2.float()
+    ssim_value = F.mse_loss(image1, image2)
+    return ssim_value.item()
 
 
 def calculate_ssim(tensor1, tensor2):
@@ -274,24 +261,18 @@ def calculate_ssim(tensor1, tensor2):
         tensor1 = tensor1.cpu()
     if tensor2.is_cuda:
         tensor2 = tensor2.cpu()
-
     tensor1 = tensor1.detach().numpy()
     tensor2 = tensor2.detach().numpy()
-
     if tensor1.shape != tensor2.shape:
         raise ValueError("张量必须具有相同的维度。")
-
     ssim_results = []
-
     for i in range(tensor1.shape[0]):
         img1 = tensor1[i]
         img2 = tensor2[i]
-
         if len(img1.shape) == 3 and img1.shape[2] in [3, 4]:
             img1 = color.rgb2gray(img1)
         if len(img2.shape) == 3 and img2.shape[2] in [3, 4]:
             img2 = color.rgb2gray(img2)
-
         ssim_value = ssim(img1, img2, channel_axis=0, data_range=1)
         ssim_results.append(ssim_value)
     return np.mean(ssim_results)
